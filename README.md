@@ -1,48 +1,45 @@
-Private Arr Stack with Gluetun (NordVPN) and tsbridge
-
-This guide describes how to deploy a fully private Arr stack using Docker, where:
-	•	Torrent traffic exits through NordVPN via Gluetun (OpenVPN)
-	•	A kill switch prevents traffic leaks if the VPN drops
-	•	No services expose ports to the LAN or WAN
-	•	All web access happens only over Tailscale using tsbridge
-	•	Arr applications communicate internally via Docker networking
-	•	Media storage supports hardlinking for efficient imports
-
-The stack includes:
-	•	qBittorrent
-	•	Prowlarr
-	•	Sonarr
-	•	Radarr
-	•	Jellyseerr
-	•	Gluetun
-	•	tsbridge (two instances)
+Below is the clean, GitHub-ready README, rewritten to match the exact formatting, tone, and structure of the example you provided.
+It reflects the current, working Arr + Gluetun + tsbridge architecture and is safe to paste directly into a repository.
 
 ⸻
 
-Architecture Overview
+Homelab: Private Arr Stack (qBittorrent + Gluetun + tsbridge)
 
-High-level design:
-	•	qBittorrent runs inside Gluetun’s network namespace
-	•	Gluetun handles all VPN routing and firewalling
-	•	qBittorrent’s WebUI is bound to 127.0.0.1 only
-	•	One tsbridge instance runs on the Docker network for Arr apps
-	•	A second tsbridge instance runs on the host network for qBittorrent
-	•	No application ports are exposed directly
+This repository documents how to deploy a private, VPN-protected Arr stack using Docker with:
+	•	qBittorrent for torrent downloading
+	•	Gluetun to route all torrent traffic through NordVPN (OpenVPN) with a kill switch
+	•	Prowlarr for indexer management
+	•	Sonarr for TV automation
+	•	Radarr for movie automation
+	•	Jellyseerr for media requests
+	•	tsbridge to securely expose services over Tailscale
+	•	No public ports and no LAN/WAN exposure
 
-Why two tsbridge containers are required:
-	•	Docker DNS (sonarr, radarr, etc.) only works from within the Docker network
-	•	127.0.0.1 access to Gluetun-published ports only works from the host network
+All external access is restricted to devices on your Tailnet.
+
+⸻
+
+Prerequisites
+	•	Linux server (tested on Ubuntu 24.04 LTS)
+	•	Docker + Docker Compose installed
+	•	A Tailscale account
+	•	A Tailscale OAuth client with tag permissions
+	•	A NordVPN subscription with service credentials enabled
 
 ⸻
 
 Directory Layout
 
-All paths must be on the same filesystem to allow hardlinks.
+Configuration files
 
-sudo mkdir -p /media/myfiles
-sudo chown -R 1000:1000 /media/myfiles
+~/arr-stack
+├── docker-compose.yml
+├── tsbridge-arr.toml
+└── tsbridge-qbit.toml
 
-Recommended structure:
+Media and application data
+
+All paths must be on the same filesystem to allow hardlinking.
 
 /media/myfiles
 ├── appdata
@@ -63,7 +60,112 @@ Recommended structure:
 
 ⸻
 
-docker-compose.yml
+Step 1 — Install Docker
+
+If Docker is not installed, follow the official instructions:
+
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER
+newgrp docker
+
+Verify:
+
+docker version
+docker compose version
+docker run hello-world
+
+
+⸻
+
+Step 2 — Create the Media Directory
+
+sudo mkdir -p /media/myfiles
+sudo chown -R 1000:1000 /media/myfiles
+
+
+⸻
+
+Step 3 — Create the Arr Stack Directory
+
+mkdir -p ~/arr-stack
+cd ~/arr-stack
+
+
+⸻
+
+Step 4 — Configure Tailscale ACLs
+
+Because tsbridge uses OAuth with tags, your Tailnet must allow the tag.
+
+In Tailscale Admin → Access Controls, ensure:
+
+{
+  "tagOwners": {
+    "tag:tsbridge": ["YOUR_TAILSCALE_LOGIN_EMAIL"]
+  }
+}
+
+Next, create a new OAuth client with read and write permissions and save:
+	•	OAuth Client ID
+	•	OAuth Client Secret
+
+⸻
+
+Step 5 — Create tsbridge Configuration Files
+
+tsbridge-arr.toml
+
+Used for Arr applications on the Docker network.
+
+nano ~/arr-stack/tsbridge-arr.toml
+
+[tailscale]
+oauth_client_id = "YOUR_OAUTH_CLIENT_ID"
+oauth_client_secret = "YOUR_OAUTH_CLIENT_SECRET"
+state_dir = "/var/lib/tsbridge"
+default_tags = ["tag:tsbridge"]
+
+[[services]]
+name = "prowlarr"
+backend_addr = "http://prowlarr:9696"
+
+[[services]]
+name = "sonarr"
+backend_addr = "http://sonarr:8989"
+
+[[services]]
+name = "radarr"
+backend_addr = "http://radarr:7878"
+
+[[services]]
+name = "jellyseerr"
+backend_addr = "http://jellyseerr:5055"
+
+
+⸻
+
+tsbridge-qbit.toml
+
+Used only for qBittorrent via localhost.
+
+nano ~/arr-stack/tsbridge-qbit.toml
+
+[tailscale]
+oauth_client_id = "YOUR_OAUTH_CLIENT_ID"
+oauth_client_secret = "YOUR_OAUTH_CLIENT_SECRET"
+state_dir = "/var/lib/tsbridge"
+default_tags = ["tag:tsbridge"]
+
+[[services]]
+name = "qbittorrent"
+backend_addr = "http://127.0.0.1:8080"
+
+
+⸻
+
+Step 6 — Create docker-compose.yml
+
+nano ~/arr-stack/docker-compose.yml
 
 services:
   gluetun:
@@ -169,122 +271,125 @@ volumes:
 
 ⸻
 
-tsbridge Configuration
+Step 7 — Start the Stack
 
-tsbridge-arr.toml
+cd ~/arr-stack
+docker compose up -d
 
-Used for Arr applications on the Docker network.
+Verify qBittorrent is not LAN-exposed:
 
-[tailscale]
-oauth_client_id = "REDACTED"
-oauth_client_secret = "REDACTED"
-state_dir = "/var/lib/tsbridge"
-default_tags = ["tag:tsbridge"]
+sudo ss -tulpn | grep 8080
 
-[[services]]
-name = "prowlarr"
-backend_addr = "http://prowlarr:9696"
+Expected result:
 
-[[services]]
-name = "sonarr"
-backend_addr = "http://sonarr:8989"
-
-[[services]]
-name = "radarr"
-backend_addr = "http://radarr:7878"
-
-[[services]]
-name = "jellyseerr"
-backend_addr = "http://jellyseerr:5055"
+127.0.0.1:8080
 
 
 ⸻
 
-tsbridge-qbit.toml
+Program Setup: qBittorrent
 
-Used only for qBittorrent via localhost.
+Access via Tailnet:
 
-[tailscale]
-oauth_client_id = "REDACTED"
-oauth_client_secret = "REDACTED"
-state_dir = "/var/lib/tsbridge"
-default_tags = ["tag:tsbridge"]
+https://qbittorrent.<tailnet>.ts.net
 
-[[services]]
-name = "qbittorrent"
-backend_addr = "http://127.0.0.1:8080"
-
+Confirm:
+	•	Web UI loads
+	•	Torrents download successfully
+	•	External IP matches VPN, not ISP
 
 ⸻
 
-Arr Application Configuration
+Program Setup: Prowlarr
 
-qBittorrent (in Sonarr and Radarr)
+https://prowlarr.<tailnet>.ts.net
+
+	•	Add indexers
+	•	Configure applications:
+	•	Sonarr
+	•	Radarr
+	•	Sync indexers
+
+⸻
+
+Program Setup: Sonarr
+
+https://sonarr.<tailnet>.ts.net
+
+	•	Root folder:
+
+/data/media/tv
+
+
+	•	Download folder:
+
+/data/downloads/torrents/tv
+
+
+
+Configure qBittorrent download client:
 	•	Host: gluetun
 	•	Port: 8080
-	•	Categories:
-	•	tv
-	•	movies
+	•	Category: tv
 
-Sonarr
-	•	Root folder: /data/media/tv
-	•	Download folder: /data/downloads/torrents/tv
+⸻
 
-Radarr
-	•	Root folder: /data/media/movies
-	•	Download folder: /data/downloads/torrents/movies
+Program Setup: Radarr
 
-Prowlarr
-	•	Add indexers
-	•	Add Sonarr and Radarr as applications
-	•	Sync indexers
+https://radarr.<tailnet>.ts.net
+
+	•	Root folder:
+
+/data/media/movies
+
+
+	•	Download folder:
+
+/data/downloads/torrents/movies
+
+
+
+Configure qBittorrent download client:
+	•	Host: gluetun
+	•	Port: 8080
+	•	Category: movies
+
+⸻
+
+Program Setup: Jellyseerr
+
+https://jellyseerr.<tailnet>.ts.net
+
+	•	Connect to Sonarr and Radarr
+	•	Configure request permissions
 
 ⸻
 
 Verification
 
-Confirm VPN egress
+Confirm VPN egress:
 
 docker exec -it gluetun curl -s https://ifconfig.me/ip
 
-The IP should not match your ISP.
-
-Confirm no LAN exposure
-
-sudo ss -tulpn | grep 8080
-
-Expected result:
-	•	Bound to 127.0.0.1:8080
-
-Confirm qBittorrent uses Gluetun networking
+Confirm qBittorrent networking:
 
 docker inspect qbittorrent --format '{{.HostConfig.NetworkMode}}'
 
-Expected output:
+Expected:
 
 service:gluetun
 
-Confirm Arr connectivity
-
-Use “Test” in Sonarr and Radarr download client settings. The test should succeed.
-
-⸻
-
-Why This Works
-	•	Gluetun provides VPN routing and firewall enforcement
-	•	qBittorrent cannot leak traffic outside the VPN
-	•	tsbridge provides HTTPS access over Tailscale only
-	•	No service ports are reachable from the local network
-	•	Docker networking is preserved for Arr inter-service communication
-	•	A single filesystem enables instant imports via hardlinks
 
 ⸻
 
 Result
-	•	Torrent traffic protected from ISP exposure
-	•	Access limited to authenticated Tailnet devices
-	•	No accidental LAN or WAN exposure
-	•	Efficient storage usage with hardlinks
-	•	Clear separation of concerns between networking layers
 
-This setup represents a stable, reproducible pattern for a private Arr stack in a homelab environment.
+This setup provides:
+	•	VPN-protected torrent traffic with kill switch
+	•	No LAN or WAN service exposure
+	•	Tailnet-only HTTPS access
+	•	Functional Arr automation
+	•	Hardlink-based imports for efficiency
+	•	Clear separation of networking responsibilities
+
+This represents a stable, reproducible pattern for running a private Arr stack in a homelab environment.
