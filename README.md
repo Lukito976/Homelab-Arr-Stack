@@ -1,46 +1,46 @@
-Below is the clean, GitHub-ready README, rewritten to match the exact formatting, tone, and structure of the example you provided.
-It reflects the current, working Arr + Gluetun + tsbridge architecture and is safe to paste directly into a repository.
-
-⸻
-
-Homelab: Private Arr Stack (qBittorrent + Gluetun + tsbridge)
+# Homelab: Private Arr Stack (qBittorrent + Gluetun + tsbridge)
 
 This repository documents how to deploy a private, VPN-protected Arr stack using Docker with:
-	•	qBittorrent for torrent downloading
-	•	Gluetun to route all torrent traffic through NordVPN (OpenVPN) with a kill switch
-	•	Prowlarr for indexer management
-	•	Sonarr for TV automation
-	•	Radarr for movie automation
-	•	Jellyseerr for media requests
-	•	tsbridge to securely expose services over Tailscale
-	•	No public ports and no LAN/WAN exposure
+*	**[qBittorrent](https://github.com/linuxserver/docker-qbittorrent)** for torrent downloading.
+*	**[Gluetun](https://github.com/qdm12/gluetun)** to route all torrent traffic through NordVPN (OpenVPN) with a kill switch.
+*	**[Prowlarr](https://github.com/linuxserver/docker-prowlarr)** for indexer management.
+*	**[Radarr](https://github.com/linuxserver/docker-radarr)** for movie automation.
+*	**[Sonarr](https://github.com/linuxserver/docker-sonarr)** for TV automation.
+*	**[Jellyseerr](https://hub.docker.com/r/fallenbagel/jellyseerr/)** for media requests.
+*	**[tsbridge](https://github.com/jtdowney/tsbridge)** to securely expose services over Tailscale.
+*	No public ports and no LAN/WAN exposure
 
 All external access is restricted to devices on your Tailnet.
 
-⸻
+---
 
-Prerequisites
-	•	Linux server (tested on Ubuntu 24.04 LTS)
-	•	Docker + Docker Compose installed
-	•	A Tailscale account
-	•	A Tailscale OAuth client with tag permissions
-	•	A NordVPN subscription with service credentials enabled
+## Prerequisites
 
-⸻
+* Linux server (Tested on [Ubuntu 24.04.3 LTS](https://ubuntu.com/download/server))
+* [Docker](https://docs.docker.com/engine/install/ubuntu/) + Docker Compose installed
+* A [Tailscale](https://tailscale.com/) account
+* A Tailscale OAuth client with tag permissions
+* A [NordVPN](https://refer-nordvpn.com/vHqBPZtMuUN) subscription with service credentials enabled
+* This guide assumes that you have either configured Jellyfin, or have followed my [Homelab Program Setup](https://github.com/Lukito976/Homelab-Program-Setup-via-tsbridge)
 
-Directory Layout
+---
 
-Configuration files
+## Directory Layout
 
+## Configuration files
+
+```
 ~/arr-stack
 ├── docker-compose.yml
 ├── tsbridge-arr.toml
 └── tsbridge-qbit.toml
+```
 
-Media and application data
+## Media and application data
 
-All paths must be on the same filesystem to allow hardlinking.
+**All paths must be on the same filesystem to allow hardlinking.**
 
+```
 /media/myfiles
 ├── appdata
 │   ├── gluetun
@@ -56,69 +56,51 @@ All paths must be on the same filesystem to allow hardlinking.
 └── media
     ├── movies
     └── tv
+```
 
+---
 
-⸻
-
-Step 1 — Install Docker
-
-If Docker is not installed, follow the official instructions:
-
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
-newgrp docker
-
-Verify:
-
-docker version
-docker compose version
-docker run hello-world
-
-
-⸻
-
-Step 2 — Create the Media Directory
-
-sudo mkdir -p /media/myfiles
-sudo chown -R 1000:1000 /media/myfiles
-
-
-⸻
-
-Step 3 — Create the Arr Stack Directory
+## Step 1 — Create the Arr Stack Directory
 
 mkdir -p ~/arr-stack
 cd ~/arr-stack
 
+---
 
-⸻
+## Step 2 — Configure Tailscale ACLs
 
-Step 4 — Configure Tailscale ACLs
+Because tsbridge uses OAuth with tags, your Tailnet must allow the tag. *If you followed my previous guide, you can skip this step and reuse the OAuth credentials you have already created.*
 
-Because tsbridge uses OAuth with tags, your Tailnet must allow the tag.
 
-In Tailscale Admin → Access Controls, ensure:
+In **Tailscale Admin → Access Controls**, ensure:
 
+```json
 {
   "tagOwners": {
     "tag:tsbridge": ["YOUR_TAILSCALE_LOGIN_EMAIL"]
   }
 }
+```
 
-Next, create a new OAuth client with read and write permissions and save:
-	•	OAuth Client ID
-	•	OAuth Client Secret
+Without this, tsbridge will fail to authenticate.
 
-⸻
+Next, generate a new a new OAuth Key:
 
-Step 5 — Create tsbridge Configuration Files
+Go to **Settings → Trust Credentials → + Credential (make sure to give it read and write privileges)**
 
-tsbridge-arr.toml
+Save the details of the key to populate the required files.
 
-Used for Arr applications on the Docker network.
+---
 
+## Step 3 — Create tsbridge Configuration Files
+
+* Create `tsbridge-arr.toml` (Used for Arr applications on the Docker network).
+  
+```bash
 nano ~/arr-stack/tsbridge-arr.toml
+```
 
+```toml
 [tailscale]
 oauth_client_id = "YOUR_OAUTH_CLIENT_ID"
 oauth_client_secret = "YOUR_OAUTH_CLIENT_SECRET"
@@ -140,16 +122,15 @@ backend_addr = "http://radarr:7878"
 [[services]]
 name = "jellyseerr"
 backend_addr = "http://jellyseerr:5055"
+```
 
-
-⸻
-
-tsbridge-qbit.toml
-
-Used only for qBittorrent via localhost.
-
+* Create `tsbridge-qbit.toml` (Used only for qBittorrent via localhost).
+  
+```bash
 nano ~/arr-stack/tsbridge-qbit.toml
+```
 
+```toml
 [tailscale]
 oauth_client_id = "YOUR_OAUTH_CLIENT_ID"
 oauth_client_secret = "YOUR_OAUTH_CLIENT_SECRET"
@@ -159,15 +140,37 @@ default_tags = ["tag:tsbridge"]
 [[services]]
 name = "qbittorrent"
 backend_addr = "http://127.0.0.1:8080"
+```
 
+---
 
-⸻
+## Step 4 — Create docker-compose.yml
 
-Step 6 — Create docker-compose.yml
-
+```bash
 nano ~/arr-stack/docker-compose.yml
+```
 
+```yaml
 services:
+  tsbridge-arr:
+    image: ghcr.io/jtdowney/tsbridge:latest
+    container_name: tsbridge-arr
+    command: ["-config", "/config/tsbridge.toml"]
+    volumes:
+      - tsbridge-arr-state:/var/lib/tsbridge
+      - ./tsbridge-arr.toml:/config/tsbridge.toml:ro
+    restart: unless-stopped
+
+  tsbridge-qbit:
+    image: ghcr.io/jtdowney/tsbridge:latest
+    container_name: tsbridge-qbit
+    network_mode: host
+    command: ["-config", "/config/tsbridge.toml"]
+    volumes:
+      - tsbridge-qbit-state:/var/lib/tsbridge
+      - ./tsbridge-qbit.toml:/config/tsbridge.toml:ro
+    restart: unless-stopped
+
   gluetun:
     image: ghcr.io/qdm12/gluetun:latest
     container_name: gluetun
@@ -182,7 +185,7 @@ services:
       - SERVER_COUNTRIES=United States
       - TZ=Etc/UTC
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8081" #NOTE I map qBittorrent to port 8081 since I have Nextcloud AIO mapped to port 8080 already. The default configuration for qBittorrent is port 8080
     restart: unless-stopped
 
   qbittorrent:
@@ -195,7 +198,7 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
-      - WEBUI_PORT=8080
+      - WEBUI_PORT=8081 #See above
     volumes:
       - /media/myfiles/appdata/qbittorrent:/config
       - /media/myfiles:/data
@@ -245,24 +248,6 @@ services:
       - /media/myfiles/appdata/jellyseerr:/app/config
     restart: unless-stopped
 
-  tsbridge-arr:
-    image: ghcr.io/jtdowney/tsbridge:latest
-    container_name: tsbridge-arr
-    command: ["-config", "/config/tsbridge.toml"]
-    volumes:
-      - tsbridge-arr-state:/var/lib/tsbridge
-      - ./tsbridge-arr.toml:/config/tsbridge.toml:ro
-    restart: unless-stopped
-
-  tsbridge-qbit:
-    image: ghcr.io/jtdowney/tsbridge:latest
-    container_name: tsbridge-qbit
-    network_mode: host
-    command: ["-config", "/config/tsbridge.toml"]
-    volumes:
-      - tsbridge-qbit-state:/var/lib/tsbridge
-      - ./tsbridge-qbit.toml:/config/tsbridge.toml:ro
-    restart: unless-stopped
 
 volumes:
   tsbridge-arr-state:
