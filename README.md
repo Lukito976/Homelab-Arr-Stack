@@ -62,6 +62,8 @@ All external access is restricted to devices on your Tailnet.
 
 ## Step 1 — Create the Arr Stack Directory
 
+All program files & downloads will live here:
+
 ```bash
 mkdir -p ~/arr-stack
 cd ~/arr-stack
@@ -95,7 +97,7 @@ Save the details of the key to populate the required files.
 
 ## Step 3 — Create tsbridge Configuration Files
 
-* Create `tsbridge-arr.toml` (Used for Arr applications on the Docker network).
+Create `tsbridge-arr.toml` (Used for Arr applications on the Docker network).
   
 ```bash
 nano ~/arr-stack/tsbridge-arr.toml
@@ -125,7 +127,7 @@ name = "jellyseerr"
 backend_addr = "http://jellyseerr:5055"
 ```
 
-* Create `tsbridge-qbit.toml` (Used only for qBittorrent via localhost).
+Create `tsbridge-qbit.toml` (Used only for qBittorrent via localhost).
   
 ```bash
 nano ~/arr-stack/tsbridge-qbit.toml
@@ -146,6 +148,8 @@ backend_addr = "http://127.0.0.1:8080"
 ---
 
 ## Step 4 — Create docker-compose.yml
+
+Create the file:
 
 ```bash
 nano ~/arr-stack/docker-compose.yml
@@ -216,18 +220,6 @@ services:
       - /media/myfiles/appdata/prowlarr:/config
     restart: unless-stopped
 
-  sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
-    container_name: sonarr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - /media/myfiles/appdata/sonarr:/config
-      - /media/myfiles:/data
-    restart: unless-stopped
-
   radarr:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
@@ -240,6 +232,18 @@ services:
       - /media/myfiles:/data
     restart: unless-stopped
 
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /media/myfiles/appdata/sonarr:/config
+      - /media/myfiles:/data
+    restart: unless-stopped
+
   jellyseerr:
     image: fallenbagel/jellyseerr:latest
     container_name: jellyseerr
@@ -249,29 +253,62 @@ services:
       - /media/myfiles/appdata/jellyseerr:/app/config
     restart: unless-stopped
 
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    ports:
+      - "8191:8191"
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
 
 volumes:
   tsbridge-arr-state:
   tsbridge-qbit-state:
+```
 
+---
 
-⸻
+## Step 5 — Start the Stack
 
-Step 7 — Start the Stack
+Run the following:
 
+```bash
 cd ~/arr-stack
 docker compose up -d
+```
 
 Verify qBittorrent is not LAN-exposed:
 
-sudo ss -tulpn | grep 8080
+```bash
+sudo ss -tulpn | grep 8081
+```
 
 Expected result:
 
-127.0.0.1:8080
+```
+127.0.0.1:8081
+```
 
+For further verification, run these commands:
 
-⸻
+```bash
+curl -s https://ifconfig.me/ip && echo
+docker exec -it gluetun wget -qO- https://ifconfig.me/ip && echo
+```
+
+If you get two different outputs like this:
+  
+```
+97.x.x.x
+181.x.x.x
+```
+
+That means that the VPN is working that the torrent will read the latter. If you see the former repeated twice, the VPN is not working.
+
+---
 
 Program Setup: qBittorrent
 
@@ -351,17 +388,8 @@ https://jellyseerr.<tailnet>.ts.net
 
 ⸻
 
-Verification
 
-Confirm VPN egress:
 
-docker exec -it gluetun curl -s https://ifconfig.me/ip
-
-Confirm qBittorrent networking:
-
-docker inspect qbittorrent --format '{{.HostConfig.NetworkMode}}'
-
-Expected:
 
 service:gluetun
 
