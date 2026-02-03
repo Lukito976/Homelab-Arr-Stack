@@ -62,9 +62,10 @@ All external access is restricted to devices on your Tailnet.
 
 ## Step 1 — Create the Arr Stack Directory
 
+```bash
 mkdir -p ~/arr-stack
 cd ~/arr-stack
-
+```
 ---
 
 ## Step 2 — Configure Tailscale ACLs
