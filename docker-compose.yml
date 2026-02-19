@@ -1,0 +1,111 @@
+services:
+  tsbridge-arr:
+    image: ghcr.io/jtdowney/tsbridge:latest
+    container_name: tsbridge-arr
+    command: ["-config", "/config/tsbridge.toml"]
+    volumes:
+      - tsbridge-arr-state:/var/lib/tsbridge
+      - ./tsbridge-arr.toml:/config/tsbridge.toml:ro
+    restart: unless-stopped
+
+  tsbridge-qbit:
+    image: ghcr.io/jtdowney/tsbridge:latest
+    container_name: tsbridge-qbit
+    network_mode: host
+    command: ["-config", "/config/tsbridge.toml"]
+    volumes:
+      - tsbridge-qbit-state:/var/lib/tsbridge
+      - ./tsbridge-qbit.toml:/config/tsbridge.toml:ro
+    restart: unless-stopped
+
+  gluetun:
+    image: ghcr.io/qdm12/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - OPENVPN_USER=YOUR_NORD_SERVICE_USERNAME
+      - OPENVPN_PASSWORD=YOUR_NORD_SERVICE_PASSWORD
+      - SERVER_COUNTRIES=United States
+      - TZ=Etc/UTC
+    ports:
+      - "127.0.0.1:8081:8081" #NOTE I map qBittorrent to port 8081 since I have Nextcloud AIO mapped to port 8080 already. The default configuration for qBittorrent is port 8080
+    restart: unless-stopped
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - WEBUI_PORT=8081 #See above
+    volumes:
+      - /media/myfiles/appdata/qbittorrent:/config
+      - /media/myfiles:/data
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /media/myfiles/appdata/prowlarr:/config
+    restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /media/myfiles/appdata/radarr:/config
+      - /media/myfiles:/data
+    restart: unless-stopped
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /media/myfiles/appdata/sonarr:/config
+      - /media/myfiles:/data
+    restart: unless-stopped
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      - TZ=Etc/UTC
+    volumes:
+      - /media/myfiles/appdata/jellyseerr:/app/config
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    ports:
+      - "8191:8191"
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+
+volumes:
+  tsbridge-arr-state:
+  tsbridge-qbit-state:
