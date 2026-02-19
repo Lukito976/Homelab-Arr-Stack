@@ -68,7 +68,6 @@ All program files & downloads will live here:
 mkdir -p ~/arr-stack
 cd ~/arr-stack
 ```
----
 
 ## Step 2 — Configure Tailscale ACLs
 
@@ -92,8 +91,6 @@ Next, generate a new a new OAuth Key:
 Go to **Settings → Trust Credentials → + Credential (make sure to give it read and write privileges)**
 
 Save the details of the key to populate the required files.
-
----
 
 ## Step 3 — Create tsbridge Configuration Files
 
@@ -144,8 +141,6 @@ default_tags = ["tag:tsbridge"]
 name = "qbittorrent"
 backend_addr = "http://127.0.0.1:8080"
 ```
-
----
 
 ## Step 4 — Create docker-compose.yml
 
@@ -269,8 +264,6 @@ volumes:
   tsbridge-qbit-state:
 ```
 
----
-
 ## Step 5 — Start the Stack
 
 Run the following:
@@ -310,207 +303,103 @@ That means that the VPN is working that the torrent will read the latter. If you
 
 ---
 
-Program Setup: qBittorrent
+## Program Setup: qBittorrent
 
-
-## qBittorrent: <br />
-Check logs for qbittorrent container: <br />
-`sudo docker logs qbittorrent` <br />
-You will see in the logs something like: <br />
-*The WebUI administrator username is: admin <br />
-The WebUI administrator password was not set. A temporary password is provided for this session: <your-password-will-be-here>*  <br /><br />
-Now you can go to URL: <br />
-If you are on the host: `http://localhost:8080` <br />
-From other device on your network: `http://<host ip address>:8080` <br />
-and log on using details provided in container logs. <br />
-Go to `Tools - Options - WebUI` - you can change the user and password here but remember to scroll down and save it. <br /><br />
-
-In left panel go to Categories - All - right click and 'add category': <br />
-
-For Radarr: `Category: movies` <br />
-`Save Path: movies` (this will be appended to '/data/torrents/ Default Save Path you set above) <br /> 
-For Sonarr: `Category: tv` <br />
-`Save Path: tv` <br />
-For Lidarr: `Category: music` <br />
-`Save Path: music` <br />
-
-Create categories first and only then configure the steps below, as doing it opposite way round caused the Categories to disappear :) <br />
-
-With categories created - go to -  `Tools - Options - Downloads` and in `Saving Management` make sure your settings match [THIS](https://trash-guides.info/Downloaders/qBittorrent/How-to-add-categories/) <br />
-So `Default Torrent Management Mode - Automatic`<br />
-`When Torrent Category changed - Relocate torrent`  <br />
-`When Default Save Path Changed - Switch affected torrents to Manual Mode`  <br />
-`When Category Save Path Changed - Switch affected torrents to Manual Mode`  <br />
-Tick BOTH BOXES for `Use Subcategories` and `Use Category paths in Manual Mode` (NOT shown on Trash Guides) <br />
-Default Save Path: - set to `/data/torrents` (so it matches your folder structure) - then scroll down and `Save`. <br />
-On Trash Guides it shows `Copy .torrent files to` but its optional, you can leave it blank <br /> <br />
-
-If you still have problems with adding categories, you can use different image like the one below:
+Check logs for qbittorrent container
+```bash
+sudo docker logs qbittorrent
 ```
-  qbittorrent:
-    <<: *common-keys
-    container_name: qbittorrent
-    image: ghcr.io/qbittorrent/docker-qbittorrent-nox:latest
-    ports:
-      - 8080:8080
-      - 6881:6881
-      - 6881:6881/udp
-    environment:
-      - QBT_LEGAL_NOTICE=confirm
-      - WEBUI_PORT=8080
-      - TORRENTING_PORT=6881
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /docker/appdata/qbittorrent:/config
-      - /data:/data
+You will see in the logs something like:
+```
+The WebUI administrator username is: admin
+The WebUI administrator password was not set. A temporary password is provided for this session: <your-password-will-be-here>
+```
+Now you can go to URL: 
+```
+https://qbittorrent.<tailnet>.ts.net
 ```
 
-Thats it for qBittorrent.<br /><br />
+Go to `Tools - Options - WebUI` - you can change the user and password here but remember to scroll down and save it.
+In left panel go to Categories - All - right click and 'add category':
+For Radarr: `Category: movies`
+`Save Path: movies` (this will be appended to '/data/torrents/ Default Save Path you set above)
+For Sonarr: `Category: tv`
+`Save Path: tv`
 
-Now configure Prowlarr service (each of these services will require to set up user/pass): <br />
-Use 'Form (login page) authentication and set your user and pass for all. <br />
+Create categories first and only then configure the steps below, as doing it opposite way round caused the Categories to disappear
 
-## Prowlarr: <br />
-`http://<host_ip>:9696` <br />
-Go to `Settings - Download Clients` - `+` symbol - Add download client - choose `qBittorrent` (unless you decided touse different download client) <br />
-UNTICK the `Use SSL` (unless you have SSL configured in qBittorrent - Tools - Options -WebUI but by default it is not used) <br />
-Host - use `qbittorrent` and port - put the port id matching the WebUI in docker-compose for qBittorrent (default is `8080`) <br />
-username and password - use the one that you configured for qBittorrent in previous step <br />
-Click little `Test` button at the bottom, make sure you get a green `tick` then `Save`.<br />
+With categories created - go to -  `Tools - Options - Downloads` and in `Saving Management` make sure your settings match [THIS](https://trash-guides.info/Downloaders/qBittorrent/How-to-add-categories/)
+So `Default Torrent Management Mode - Automatic`
+`When Torrent Category changed - Relocate torrent` 
+`When Default Save Path Changed - Switch affected torrents to Manual Mode` 
+`When Category Save Path Changed - Switch affected torrents to Manual Mode` 
+Tick BOTH BOXES for `Use Subcategories` and `Use Category paths in Manual Mode` (NOT shown on Trash Guides) 
+Default Save Path: - set to `/data/torrents` (so it matches your folder structure) - then scroll down and `Save`.
+On Trash Guides it shows `Copy .torrent files to` but its optional, you can leave it blank
 
+## Program Setup: Prowlarr
 
+Connect to URL: 
+```
+https://prowlarr.<tailnet>.ts.net
+```
 
-## Radarr: <br />
-`http://<host_ip>:7878` <br />
-Go to `Settings - Media Management - Add Root Folder` (scroll down to the bottom) - set  `/data/media/movies` as your root folder <br />
-Still in `Settings - Media Management - click Show Advanced - Importing - Use Hardlinks instead of Copy` - make sure its 'ticked' <br /> <br />
+Now configure Prowlarr service (each of these services will require to set up user/pass):
+Use 'Form (login page) authentication and set your user and pass for all.
 
-Optional - you can also tick `Rename Movies` and `Delete empty movie folders during disk scan` , and in `Import Extra Files` - make sure that box is ticked <br />
-and in `Import Extra files` field type `srt,sub,nfo` (those 3 changes are all optional) <br /><br />
+Go to `Settings - Download Clients` - `+` symbol - Add download client - choose `qBittorrent` (unless you decided touse different download client)
+UNTICK the `Use SSL` (unless you have SSL configured in qBittorrent - Tools - Options -WebUI but by default it is not used)
+Host - use `qbittorrent` and port - put the port id matching the WebUI in docker-compose for qBittorrent (default is `8080`)
+username and password - use the one that you configured for qBittorrent in previous step
+Click little `Test` button at the bottom, make sure you get a green `tick` then `Save`.
 
-Then `Settings- Download clients` - click `plus` symbol, choose `qBittorrent` etc - basically same steps as for Prowlarr <br />
-so Host `qbittorrent`, port `8080`, ,make sure SSL is unticked, username admin and password - one you configured for qBittorrent <br /> 
-and change the Category to `movies` (needs to match qbittorrent Category) <br /> <br />
-Now click the `Test` and if you have green 'tick' - `Save`.<br />
-Now go to `Settings - General` - scroll down to API key - Copy API key - go back to `Prowlarr - Settings - Apps` -click `+` - Radarr - paste  API key. <br />
-Then change `Prowlarr Server` to `http://prowlarr:9696` and `Radarr Server` to `http://radarr:7878` <br />
-Click `Test` and if Green - Save <br /><br />
+## Program Setup: Radarr
 
-BTW - you can see how to configure each service for  hardlinks [HERE](https://trash-guides.info/File-and-Folder-Structure/Examples/) <br />
-You need to configure SABnzbd / qbittorrent and any other services you run too, not only Radarr or Sonarr <br />
+Connect to URL: 
+```
+https://radarr.<tailnet>.ts.net
+```
 
+Go to `Settings - Media Management - Add Root Folder` (scroll down to the bottom) - set  `/data/media/movies` as your root folder
+Still in `Settings - Media Management - click Show Advanced - Importing - Use Hardlinks instead of Copy` - make sure its 'ticked'
 
+Optional - you can also tick `Rename Movies` and `Delete empty movie folders during disk scan` , and in `Import Extra Files` - make sure that box is ticked
+and in `Import Extra files` field type `srt,sub,nfo` (those 3 changes are all optional)
 
-## Sonarr: <br />
-`http://<host_ip>:8989` <br />
-Go to `Settings - Media Management - Add Root Folder` - set  `/data/media/tv` as your root folder <br />
-Still in `Settings - Media Management - Show Advanced - Importing - Use Hardlinks instead of Copy` - make sure its 'ticked' <br /> <br />
+Then `Settings- Download clients` - click `plus` symbol, choose `qBittorrent` etc - basically same steps as for Prowlarr
+so Host `qbittorrent`, port `8080`, ,make sure SSL is unticked, username admin and password - one you configured for qBittorrent
+and change the Category to `movies` (needs to match qbittorrent Category)
+Now click the `Test` and if you have green 'tick' - `Save`.
+Now go to `Settings - General` - scroll down to API key - Copy API key - go back to `Prowlarr - Settings - Apps` -click `+` - Radarr - paste  API key.
+Then change `Prowlarr Server` to `https://prowlarr.<tailnet>.ts.net` and `Radarr Server` to `https://radarr.<tailnet>.ts.net`
+Click `Test` and if Green - Save
+
+## Program Setup: Sonarr
+
+Connect to URL: 
+```
+https://sonarr.<tailnet>.ts.net
+```
+
+Go to `Settings - Media Management - Add Root Folder` (scroll down to the bottom) - set  `/data/media/tv` as your root folder
+Still in `Settings - Media Management - click Show Advanced - Importing - Use Hardlinks instead of Copy` - make sure its 'ticked'
 
 Optional - you can also tick `Rename Episodes` and `Delete empty Folders - delete empty series and season folders during disk scan` <br />
-Then in `Import Extra Files` - make sure that box is ticked and in `Import Extra files` field type `srt,sub,nfo` (those 3 changes are all optional) <br /><br />
+Then in `Import Extra Files` - make sure that box is ticked and in `Import Extra files` field type `srt,sub,nfo` (those 3 changes are all optional)
 
-Then `Settings- Download clients` - click `plus` symbol, choose `qBittorrent` etc - basically same steps as for previous services<br />
-Host `qbittorrent`, port `8080`, ,make sure SSL is unticked, username admin and password - one you configured for qBittorrent <br /> 
-and change the Category to 'tv' (by default its 'tv-sonarr', but you need to match qbittorrent Category) <br /><br />
-Now click the 'Test' and if you have green 'tick' - Save.<br />
-Now go to `Settings - General` - scroll down to API key - Copy API key - go back to Prowlarr - Settings - Apps -click '+' - Sonarr - paste  API key. <br />
-Then change `Prowlarr Server` to `http://prowlarr:9696` and `Sonarr Server` to `http://sonarr:8989`<br />
-Click `Test` and if Green - `Save`<br />
+Then `Settings- Download clients` - click `plus` symbol, choose `qBittorrent` etc - basically same steps as for Prowlarr
+so Host `qbittorrent`, port `8081`, ,make sure SSL is unticked, username admin and password - one you configured for qBittorrent
+and change the Category to `tv` (needs to match qbittorrent Category)
+Now click the `Test` and if you have green 'tick' - `Save`.
+Now go to `Settings - General` - scroll down to API key - Copy API key - go back to `Prowlarr - Settings - Apps` -click `+` - Sonarr - paste  API key.
+Then change `Prowlarr Server` to `https://prowlarr.<tailnet>.ts.net` and `Sonarr Server` to `https://sonarr.<tailnet>.ts.net`
+Click `Test` and if Green - Save
 
+## Program Setup: Jellyseer
 
+Connect to URL: 
+```
+https://jellyseer.<tailnet>.ts.net
+```
 
-Access via Tailnet:
-
-https://qbittorrent.<tailnet>.ts.net
-
-Confirm:
-	•	Web UI loads
-	•	Torrents download successfully
-	•	External IP matches VPN, not ISP
-
-⸻
-
-Program Setup: Prowlarr
-
-https://prowlarr.<tailnet>.ts.net
-
-	•	Add indexers
-	•	Configure applications:
-	•	Sonarr
-	•	Radarr
-	•	Sync indexers
-
-⸻
-
-Program Setup: Sonarr
-
-https://sonarr.<tailnet>.ts.net
-
-	•	Root folder:
-
-/data/media/tv
-
-
-	•	Download folder:
-
-/data/downloads/torrents/tv
-
-
-
-Configure qBittorrent download client:
-	•	Host: gluetun
-	•	Port: 8080
-	•	Category: tv
-
-⸻
-
-Program Setup: Radarr
-
-https://radarr.<tailnet>.ts.net
-
-	•	Root folder:
-
-/data/media/movies
-
-
-	•	Download folder:
-
-/data/downloads/torrents/movies
-
-
-
-Configure qBittorrent download client:
-	•	Host: gluetun
-	•	Port: 8080
-	•	Category: movies
-
-⸻
-
-Program Setup: Jellyseerr
-
-https://jellyseerr.<tailnet>.ts.net
-
-	•	Connect to Sonarr and Radarr
-	•	Configure request permissions
-
-⸻
-
-
-
-
-service:gluetun
-
-
-⸻
-
-Result
-
-This setup provides:
-	•	VPN-protected torrent traffic with kill switch
-	•	No LAN or WAN service exposure
-	•	Tailnet-only HTTPS access
-	•	Functional Arr automation
-	•	Hardlink-based imports for efficiency
-	•	Clear separation of networking responsibilities
-
-This represents a stable, reproducible pattern for running a private Arr stack in a homelab environment.
+Sign in using your Jellyfin account, and configure it to connect to your jellyfin tailnet `https://jellyfin.<tailnet>.ts.net`
