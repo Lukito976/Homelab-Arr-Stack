@@ -1,0 +1,21 @@
+[tailscale]
+oauth_client_id = "YOUR_OAUTH_CLIENT_ID"
+oauth_client_secret = "YOUR_OAUTH_CLIENT_SECRET"
+state_dir = "/var/lib/tsbridge"
+default_tags = ["tag:tsbridge"]
+
+[[services]]
+name = "prowlarr"
+backend_addr = "http://prowlarr:9696"
+
+[[services]]
+name = "sonarr"
+backend_addr = "http://sonarr:8989"
+
+[[services]]
+name = "radarr"
+backend_addr = "http://radarr:7878"
+
+[[services]]
+name = "jellyseerr"
+backend_addr = "http://jellyseerr:5055"
