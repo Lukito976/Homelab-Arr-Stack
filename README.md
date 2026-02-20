@@ -455,23 +455,4 @@ Connect to:
 https://jellyseerr.<tailnet>.ts.net
 ```
 
-Sign in using your Jellyfin account and configure it to connect to `https://jellyfin.<tailnet>.ts.net`.
-
----
-
-## Troubleshooting
-
-**gluetun is `(unhealthy)` / AUTH_FAILED loop**
-→ Your NordVPN service credentials are wrong or expired. Regenerate them at my.nordaccount.com → NordVPN → Manual setup → Service credentials, update `docker-compose.yml`, then run `docker compose up -d gluetun`.
-
-**tsbridge-qbit fails with "no such container" after gluetun restart**
-→ Run `docker compose up -d --force-recreate tsbridge-qbit`. A plain restart won't work because tsbridge-qbit is bound to gluetun's container ID, which changes on recreation.
-
-**qBittorrent shows 502 Bad Gateway via Tailscale**
-→ Disable Host header validation in qBittorrent: **Tools → Options → WebUI → Security → uncheck "Enable Host header validation"**.
-
-**Radarr/Sonarr/Prowlarr intermittently offline on Tailscale**
-→ Ensure `cap_add: NET_ADMIN` and the `/dev/net/tun` device are present on tsbridge-arr in `docker-compose.yml`. Without these, Tailscale cannot create a TUN interface and tsbridge crashes silently.
-
-**qBittorrent shows no external IP / same IP as host**
-→ gluetun is not connected. Check `docker logs gluetun --tail 20` and verify credentials and container health.
+Sign in using your Jellyfin account and configure it to connect to `https://jellyfin.<tailnet>.ts.net`
