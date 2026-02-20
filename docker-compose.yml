@@ -3,6 +3,11 @@ services:
     image: ghcr.io/jtdowney/tsbridge:latest
     container_name: tsbridge-arr
     command: ["-config", "/config/tsbridge.toml"]
+    cap_add:
+      - NET_ADMIN     # Required: Tailscale needs to manage network interfaces
+      - SYS_MODULE    # Required: load kernel modules if needed
+    devices:
+      - /dev/net/tun:/dev/net/tun   # Required: Tailscale TUN device
     volumes:
       - tsbridge-arr-state:/var/lib/tsbridge
       - ./tsbridge-arr.toml:/config/tsbridge.toml:ro
@@ -11,12 +16,19 @@ services:
   tsbridge-qbit:
     image: ghcr.io/jtdowney/tsbridge:latest
     container_name: tsbridge-qbit
-    network_mode: host
+    network_mode: "service:gluetun"   # Share gluetun's network namespace so 127.0.0.1:8081 resolves correctly
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
     command: ["-config", "/config/tsbridge.toml"]
     volumes:
       - tsbridge-qbit-state:/var/lib/tsbridge
       - ./tsbridge-qbit.toml:/config/tsbridge.toml:ro
     restart: unless-stopped
+    depends_on:
+      - gluetun
 
   gluetun:
     image: ghcr.io/qdm12/gluetun:latest
@@ -27,28 +39,40 @@ services:
       - /dev/net/tun:/dev/net/tun
     environment:
       - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=openvpn
+      # Use NordVPN SERVICE credentials (not your website login).
+      # Get them from: my.nordaccount.com → NordVPN → Manual setup → Service credentials
       - OPENVPN_USER=YOUR_NORD_SERVICE_USERNAME
       - OPENVPN_PASSWORD=YOUR_NORD_SERVICE_PASSWORD
       - SERVER_COUNTRIES=United States
       - TZ=Etc/UTC
     ports:
-      - "127.0.0.1:8081:8081" #NOTE I map qBittorrent to port 8081 since I have Nextcloud AIO mapped to port 8080 already. The default configuration for qBittorrent is port 8080
+      # qBittorrent WebUI exposed only to localhost (not LAN/WAN).
+      # Port 8081 used because 8080 is taken by Nextcloud AIO.
+      - "127.0.0.1:8081:8081/tcp"
+    healthcheck:
+      test: /gluetun-entrypoint healthcheck
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s   # Give VPN time to connect before marking unhealthy
     restart: unless-stopped
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    network_mode: "service:gluetun"
+    network_mode: "service:gluetun"   # All traffic routed through gluetun/NordVPN
     depends_on:
-      - gluetun
+      gluetun:
+        condition: service_healthy    # Wait for VPN to be confirmed up before starting
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
-      - WEBUI_PORT=8081 #See above
+      - WEBUI_PORT=8081
     volumes:
-      - /media/myfiles/appdata/qbittorrent:/config
-      - /media/myfiles:/data
+      - /media/media-library/appdata/qbittorrent:/config
+      - /media/media-library:/data
     restart: unless-stopped
 
   prowlarr:
@@ -59,7 +83,7 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - /media/myfiles/appdata/prowlarr:/config
+      - /media/media-library/appdata/prowlarr:/config
     restart: unless-stopped
 
   radarr:
@@ -70,8 +94,8 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - /media/myfiles/appdata/radarr:/config
-      - /media/myfiles:/data
+      - /media/media-library/appdata/radarr:/config
+      - /media/media-library:/data
     restart: unless-stopped
 
   sonarr:
@@ -82,8 +106,8 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - /media/myfiles/appdata/sonarr:/config
-      - /media/myfiles:/data
+      - /media/media-library/appdata/sonarr:/config
+      - /media/media-library:/data
     restart: unless-stopped
 
   jellyseerr:
@@ -92,7 +116,7 @@ services:
     environment:
       - TZ=Etc/UTC
     volumes:
-      - /media/myfiles/appdata/jellyseerr:/app/config
+      - /media/media-library/appdata/jellyseerr:/app/config
     restart: unless-stopped
 
   flaresolverr:
